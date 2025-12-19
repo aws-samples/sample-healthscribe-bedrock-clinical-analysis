@@ -1,0 +1,11 @@
+{
+  "name": "asclepius-hlhandler",
+  "version": "1.0.0",
+  "description": "HealthScribe integration handler",
+  "main": "lambda_function.py",
+  "runtime": "python3.9",
+  "dependencies": {
+    "boto3": "^1.26.0"
+  },
+  "handler": "lambda_function.lambda_handler"
+}

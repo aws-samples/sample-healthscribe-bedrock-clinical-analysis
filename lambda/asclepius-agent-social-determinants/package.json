@@ -1,0 +1,11 @@
+{
+  "name": "asclepius-agent-social-determinants",
+  "version": "1.0.0",
+  "description": "Specialist healthcare agent for asclepius-agent-social-determinants",
+  "main": "lambda_function.py",
+  "runtime": "python3.9",
+  "dependencies": {
+    "boto3": "^1.26.0"
+  },
+  "handler": "lambda_function.lambda_handler"
+}

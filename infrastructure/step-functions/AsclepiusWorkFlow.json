@@ -1,0 +1,1031 @@
+{
+    "Comment": "Asclepius Clinical Documentation Workflow",
+    "StartAt": "ProcessSummary",
+    "States": {
+        "ProcessSummary": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+                "FunctionName": "arn:aws:lambda:REGION:ACCOUNT:function:asclepius-summary-processor",
+                "Payload": {
+                    "bucket.$": "$.detail.bucket",
+                    "key.$": "$.detail.key",
+                    "visitId.$": "$.detail.visitId"
+                }
+            },
+            "ResultPath": "$.summaryResult",
+            "Next": "ICD10Verify",
+            "Retry": [
+                {
+                    "ErrorEquals": [
+                        "Lambda.ServiceException",
+                        "Lambda.AWSLambdaException",
+                        "Lambda.SdkClientException"
+                    ],
+                    "IntervalSeconds": 2,
+                    "MaxAttempts": 6,
+                    "BackoffRate": 2
+                }
+            ]
+        },
+        "ICD10Verify": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+                "FunctionName": "arn:aws:lambda:REGION:ACCOUNT:function:asclepius-icd10-verify",
+                "Payload": {
+                    "summary.$": "$.summaryResult.Payload.summary",
+                    "bucket.$": "$.summaryResult.Payload.bucket",
+                    "visitId.$": "$.summaryResult.Payload.visitId",
+                    "originalKey.$": "$.summaryResult.Payload.originalKey"
+                }
+            },
+            "ResultPath": "$.icd10Result",
+            "Next": "StoreICD10Summary",
+            "Retry": [
+                {
+                    "ErrorEquals": [
+                        "Lambda.ServiceException",
+                        "Lambda.AWSLambdaException",
+                        "Lambda.SdkClientException"
+                    ],
+                    "IntervalSeconds": 2,
+                    "MaxAttempts": 6,
+                    "BackoffRate": 2
+                }
+            ]
+        },
+        "StoreICD10Summary": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::dynamodb:putItem",
+            "Parameters": {
+                "TableName": "asclepius-visit-data",
+                "Item": {
+                    "visitId": {
+                        "S.$": "$.icd10Result.Payload.visitId"
+                    },
+                    "dataCategory": {
+                        "S": "finalSummary"
+                    },
+                    "chief_complaint": {
+                        "S.$": "States.JsonToString($.icd10Result.Payload.summary.chief_complaint)"
+                    },
+                    "history_present_illness": {
+                        "S.$": "States.JsonToString($.icd10Result.Payload.summary.history_present_illness)"
+                    },
+                    "review_systems": {
+                        "S.$": "States.JsonToString($.icd10Result.Payload.summary.review_systems)"
+                    },
+                    "assessment": {
+                        "S.$": "States.JsonToString($.icd10Result.Payload.summary.assessment)"
+                    },
+                    "plan": {
+                        "S.$": "States.JsonToString($.icd10Result.Payload.summary.plan)"
+                    },
+                    "timestamp": {
+                        "S.$": "$$.State.EnteredTime"
+                    }
+                }
+            },
+            "Next": "GenerateCarePlan",
+            "ResultPath": "$.dynamoDBResult"
+        },
+        "GenerateCarePlan": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+                "FunctionName": "arn:aws:lambda:us-east-1:120569639545:function:asclepius-generate-care-plan",
+                "Payload": {
+                    "summary.$": "$.icd10Result.Payload.summary",
+                    "bucket.$": "$.icd10Result.Payload.bucket",
+                    "visitId.$": "$.icd10Result.Payload.visitId",
+                    "originalKey.$": "$.icd10Result.Payload.originalKey"
+                }
+            },
+            "ResultPath": "$.carePlanResult",
+            "Next": "ParallelExecution",
+            "Retry": [
+                {
+                    "ErrorEquals": [
+                        "Lambda.ServiceException",
+                        "Lambda.AWSLambdaException",
+                        "Lambda.SdkClientException"
+                    ],
+                    "IntervalSeconds": 2,
+                    "MaxAttempts": 6,
+                    "BackoffRate": 2
+                }
+            ]
+        },
+        "ParallelExecution": {
+            "Type": "Parallel",
+            "Branches": [
+                {
+                    "StartAt": "StoreCarePlan",
+                    "States": {
+                        "StoreCarePlan": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::dynamodb:putItem",
+                            "Parameters": {
+                                "TableName": "asclepius-visit-data",
+                                "Item": {
+                                    "visitId": {
+                                        "S.$": "$.carePlanResult.Payload.carePlan.visitId"
+                                    },
+                                    "dataCategory": {
+                                        "S": "carePlan"
+                                    },
+                                    "diagnosticTests": {
+                                        "S.$": "States.JsonToString($.carePlanResult.Payload.carePlan.diagnosticTests)"
+                                    },
+                                    "treatmentOptions": {
+                                        "S.$": "States.JsonToString($.carePlanResult.Payload.carePlan.treatmentOptions)"
+                                    },
+                                    "patientEducation": {
+                                        "S.$": "States.JsonToString($.carePlanResult.Payload.carePlan.patientEducation)"
+                                    },
+                                    "followUpRecommendations": {
+                                        "S.$": "States.JsonToString($.carePlanResult.Payload.carePlan.followUpRecommendations)"
+                                    },
+                                    "specialistReferrals": {
+                                        "S.$": "States.JsonToString($.carePlanResult.Payload.carePlan.specialistReferrals)"
+                                    }
+                                }
+                            },
+                            "End": true,
+                            "Retry": [
+                                {
+                                    "ErrorEquals": [
+                                        "States.ServiceError",
+                                        "States.TaskFailed"
+                                    ],
+                                    "IntervalSeconds": 2,
+                                    "MaxAttempts": 6,
+                                    "BackoffRate": 2
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "StartAt": "InvokeOrchestrator",
+                    "States": {
+                        "InvokeOrchestrator": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "Parameters": {
+                                "FunctionName": "arn:aws:lambda:us-east-1:120569639545:function:asclepius-orchestrator",
+                                "Payload": {
+                                    "carePlan.$": "$.carePlanResult.Payload.carePlan",
+                                    "summary.$": "$.icd10Result.Payload.summary",
+                                    "bucket.$": "$.icd10Result.Payload.bucket",
+                                    "visitId.$": "$.icd10Result.Payload.visitId"
+                                }
+                            },
+                            "ResultPath": "$.orchestratorResult",
+                            "Next": "ExpertRouting",
+                            "Retry": [
+                                {
+                                    "ErrorEquals": [
+                                        "Lambda.ServiceException",
+                                        "Lambda.AWSLambdaException",
+                                        "Lambda.SdkClientException"
+                                    ],
+                                    "IntervalSeconds": 2,
+                                    "MaxAttempts": 6,
+                                    "BackoffRate": 2
+                                }
+                            ]
+                        },
+                        "ExpertRouting": {
+                            "Type": "Choice",
+                            "Choices": [
+                                {
+                                    "Or": [
+                                        {
+                                            "Variable": "$.orchestratorResult.Payload.requiredExperts.diabetes_specialist.needed",
+                                            "BooleanEquals": true
+                                        },
+                                        {
+                                            "Variable": "$.orchestratorResult.Payload.requiredExperts.allergies_expert.needed",
+                                            "BooleanEquals": true
+                                        },
+                                        {
+                                            "Variable": "$.orchestratorResult.Payload.requiredExperts.kidney_expert.needed",
+                                            "BooleanEquals": true
+                                        },
+                                        {
+                                            "Variable": "$.orchestratorResult.Payload.requiredExperts.insurance_expert.needed",
+                                            "BooleanEquals": true
+                                        },
+                                        {
+                                            "Variable": "$.orchestratorResult.Payload.requiredExperts.nutritionist.needed",
+                                            "BooleanEquals": true
+                                        },
+                                        {
+                                            "Variable": "$.orchestratorResult.Payload.requiredExperts.ophthalmologist.needed",
+                                            "BooleanEquals": true
+                                        },
+                                        {
+                                            "Variable": "$.orchestratorResult.Payload.requiredExperts.podiatrist.needed",
+                                            "BooleanEquals": true
+                                        },
+                                        {
+                                            "Variable": "$.orchestratorResult.Payload.requiredExperts.hospital_care_team.needed",
+                                            "BooleanEquals": true
+                                        },
+                                        {
+                                            "Variable": "$.orchestratorResult.Payload.requiredExperts.ada_expert.needed",
+                                            "BooleanEquals": true
+                                        },
+                                        {
+                                            "Variable": "$.orchestratorResult.Payload.requiredExperts.social_determinants_expert.needed",
+                                            "BooleanEquals": true
+                                        },
+                                        {
+                                            "Variable": "$.orchestratorResult.Payload.requiredExperts.physical_therapist.needed",
+                                            "BooleanEquals": true
+                                        },
+                                        {
+                                            "Variable": "$.orchestratorResult.Payload.requiredExperts.pharmacist.needed",
+                                            "BooleanEquals": true
+                                        }
+                                    ],
+                                    "Next": "InvokeNeededExperts"
+                                }
+                            ],
+                            "Default": "ExpertsNotNeeded"
+                        },
+                        "InvokeNeededExperts": {
+                            "Type": "Parallel",
+                            "Branches": [
+                                {
+                                    "StartAt": "CheckDiabetesSpecialist",
+                                    "States": {
+                                        "CheckDiabetesSpecialist": {
+                                            "Type": "Choice",
+                                            "Choices": [
+                                                {
+                                                    "Variable": "$.orchestratorResult.Payload.requiredExperts.diabetes_specialist.needed",
+                                                    "BooleanEquals": true,
+                                                    "Next": "InvokeDiabetesSpecialist"
+                                                }
+                                            ],
+                                            "Default": "DiabetesSpecialistNotNeeded"
+                                        },
+                                        "InvokeDiabetesSpecialist": {
+                                            "Type": "Task",
+                                            "Resource": "arn:aws:states:::lambda:invoke",
+                                            "Parameters": {
+                                                "FunctionName": "arn:aws:lambda:us-east-1:120569639545:function:asclepius-agent-diabetes",
+                                                "Payload": {
+                                                    "expert.$": "$.orchestratorResult.Payload.requiredExperts.diabetes_specialist",
+                                                    "originalData.$": "$"
+                                                }
+                                            },
+                                            "ResultPath": "$.diabetesSpecialistResult",
+                                            "Next": "StoreDiabetesSpecialistResult"
+                                        },
+                                        "StoreDiabetesSpecialistResult": {
+                                            "Type": "Task",
+                                            "Resource": "arn:aws:states:::dynamodb:putItem",
+                                            "Parameters": {
+                                                "TableName": "asclepius-visit-data",
+                                                "Item": {
+                                                    "visitId": {
+                                                        "S.$": "$.carePlanResult.Payload.carePlan.visitId"
+                                                    },
+                                                    "dataCategory": {
+                                                        "S": "diabetesExpert"
+                                                    },
+                                                    "expertResult": {
+                                                        "S.$": "States.JsonToString($.diabetesSpecialistResult.Payload.response)"
+                                                    }
+                                                }
+                                            },
+                                            "End": true,
+                                            "Retry": [
+                                                {
+                                                    "ErrorEquals": [
+                                                        "States.ServiceError",
+                                                        "States.TaskFailed"
+                                                    ],
+                                                    "IntervalSeconds": 2,
+                                                    "MaxAttempts": 6,
+                                                    "BackoffRate": 2
+                                                }
+                                            ]
+                                        },
+                                        "DiabetesSpecialistNotNeeded": {
+                                            "Type": "Pass",
+                                            "End": true
+                                        }
+                                    }
+                                },
+                                {
+                                    "StartAt": "CheckPharmacist",
+                                    "States": {
+                                        "CheckPharmacist": {
+                                            "Type": "Choice",
+                                            "Choices": [
+                                                {
+                                                    "Variable": "$.orchestratorResult.Payload.requiredExperts.pharmacist.needed",
+                                                    "BooleanEquals": true,
+                                                    "Next": "InvokePharmacist"
+                                                }
+                                            ],
+                                            "Default": "PharmacistNotNeeded"
+                                        },
+                                        "InvokePharmacist": {
+                                            "Type": "Task",
+                                            "Resource": "arn:aws:states:::lambda:invoke",
+                                            "Parameters": {
+                                                "FunctionName": "arn:aws:lambda:us-east-1:120569639545:function:asclepius-agent-pharmacist",
+                                                "Payload": {
+                                                    "expert.$": "$.orchestratorResult.Payload.requiredExperts.pharmacist",
+                                                    "originalData.$": "$"
+                                                }
+                                            },
+                                            "ResultPath": "$.pharmacistResult",
+                                            "Next": "StorePharmacistResult"
+                                        },
+                                        "StorePharmacistResult": {
+                                            "Type": "Task",
+                                            "Resource": "arn:aws:states:::dynamodb:putItem",
+                                            "Parameters": {
+                                                "TableName": "asclepius-visit-data",
+                                                "Item": {
+                                                    "visitId": {
+                                                        "S.$": "$.carePlanResult.Payload.carePlan.visitId"
+                                                    },
+                                                    "dataCategory": {
+                                                        "S": "pharmacistExpert"
+                                                    },
+                                                    "expertResult": {
+                                                        "S.$": "States.JsonToString($.pharmacistResult.Payload.response)"
+                                                    }
+                                                }
+                                            },
+                                            "End": true,
+                                            "Retry": [
+                                                {
+                                                    "ErrorEquals": [
+                                                        "States.ServiceError",
+                                                        "States.TaskFailed"
+                                                    ],
+                                                    "IntervalSeconds": 2,
+                                                    "MaxAttempts": 6,
+                                                    "BackoffRate": 2
+                                                }
+                                            ]
+                                        },
+                                        "PharmacistNotNeeded": {
+                                            "Type": "Pass",
+                                            "End": true
+                                        }
+                                    }
+                                },
+                                {
+                                    "StartAt": "CheckAllergiesExpert",
+                                    "States": {
+                                        "CheckAllergiesExpert": {
+                                            "Type": "Choice",
+                                            "Choices": [
+                                                {
+                                                    "Variable": "$.orchestratorResult.Payload.requiredExperts.allergies_expert.needed",
+                                                    "BooleanEquals": true,
+                                                    "Next": "InvokeAllergiesExpert"
+                                                }
+                                            ],
+                                            "Default": "AllergiesExpertNotNeeded"
+                                        },
+                                        "InvokeAllergiesExpert": {
+                                            "Type": "Task",
+                                            "Resource": "arn:aws:states:::lambda:invoke",
+                                            "Parameters": {
+                                                "FunctionName": "arn:aws:lambda:us-east-1:120569639545:function:asclepius-agent-allergies",
+                                                "Payload": {
+                                                    "expert.$": "$.orchestratorResult.Payload.requiredExperts.allergies_expert",
+                                                    "originalData.$": "$"
+                                                }
+                                            },
+                                            "ResultPath": "$.allergiesExpertResult",
+                                            "Next": "StoreAllergiesExpertResult"
+                                        },
+                                        "StoreAllergiesExpertResult": {
+                                            "Type": "Task",
+                                            "Resource": "arn:aws:states:::dynamodb:putItem",
+                                            "Parameters": {
+                                                "TableName": "asclepius-visit-data",
+                                                "Item": {
+                                                    "visitId": {
+                                                        "S.$": "$.carePlanResult.Payload.carePlan.visitId"
+                                                    },
+                                                    "dataCategory": {
+                                                        "S": "allergiesExpert"
+                                                    },
+                                                    "expertResult": {
+                                                        "S.$": "States.JsonToString($.allergiesExpertResult.Payload.response)"
+                                                    }
+                                                }
+                                            },
+                                            "End": true,
+                                            "Retry": [
+                                                {
+                                                    "ErrorEquals": [
+                                                        "States.ServiceError",
+                                                        "States.TaskFailed"
+                                                    ],
+                                                    "IntervalSeconds": 2,
+                                                    "MaxAttempts": 6,
+                                                    "BackoffRate": 2
+                                                }
+                                            ]
+                                        },
+                                        "AllergiesExpertNotNeeded": {
+                                            "Type": "Pass",
+                                            "End": true
+                                        }
+                                    }
+                                },
+                                {
+                                    "StartAt": "CheckKidneyExpert",
+                                    "States": {
+                                        "CheckKidneyExpert": {
+                                            "Type": "Choice",
+                                            "Choices": [
+                                                {
+                                                    "Variable": "$.orchestratorResult.Payload.requiredExperts.kidney_expert.needed",
+                                                    "BooleanEquals": true,
+                                                    "Next": "InvokeKidneyExpert"
+                                                }
+                                            ],
+                                            "Default": "KidneyExpertNotNeeded"
+                                        },
+                                        "InvokeKidneyExpert": {
+                                            "Type": "Task",
+                                            "Resource": "arn:aws:states:::lambda:invoke",
+                                            "Parameters": {
+                                                "FunctionName": "arn:aws:lambda:us-east-1:120569639545:function:asclepius-agent-kidney",
+                                                "Payload": {
+                                                    "expert.$": "$.orchestratorResult.Payload.requiredExperts.kidney_expert",
+                                                    "originalData.$": "$"
+                                                }
+                                            },
+                                            "ResultPath": "$.kidneyExpertResult",
+                                            "Next": "StoreKidneyExpertResult"
+                                        },
+                                        "StoreKidneyExpertResult": {
+                                            "Type": "Task",
+                                            "Resource": "arn:aws:states:::dynamodb:putItem",
+                                            "Parameters": {
+                                                "TableName": "asclepius-visit-data",
+                                                "Item": {
+                                                    "visitId": {
+                                                        "S.$": "$.carePlanResult.Payload.carePlan.visitId"
+                                                    },
+                                                    "dataCategory": {
+                                                        "S": "kidneyExpert"
+                                                    },
+                                                    "expertResult": {
+                                                        "S.$": "States.JsonToString($.kidneyExpertResult.Payload.response)"
+                                                    }
+                                                }
+                                            },
+                                            "End": true,
+                                            "Retry": [
+                                                {
+                                                    "ErrorEquals": [
+                                                        "States.ServiceError",
+                                                        "States.TaskFailed"
+                                                    ],
+                                                    "IntervalSeconds": 2,
+                                                    "MaxAttempts": 6,
+                                                    "BackoffRate": 2
+                                                }
+                                            ]
+                                        },
+                                        "KidneyExpertNotNeeded": {
+                                            "Type": "Pass",
+                                            "End": true
+                                        }
+                                    }
+                                },
+                                {
+                                    "StartAt": "CheckInsuranceExpert",
+                                    "States": {
+                                        "CheckInsuranceExpert": {
+                                            "Type": "Choice",
+                                            "Choices": [
+                                                {
+                                                    "Variable": "$.orchestratorResult.Payload.requiredExperts.insurance_expert.needed",
+                                                    "BooleanEquals": true,
+                                                    "Next": "InvokeInsuranceExpert"
+                                                }
+                                            ],
+                                            "Default": "InsuranceExpertNotNeeded"
+                                        },
+                                        "InvokeInsuranceExpert": {
+                                            "Type": "Task",
+                                            "Resource": "arn:aws:states:::lambda:invoke",
+                                            "Parameters": {
+                                                "FunctionName": "arn:aws:lambda:us-east-1:120569639545:function:asclepius-agent-insurance",
+                                                "Payload": {
+                                                    "expert.$": "$.orchestratorResult.Payload.requiredExperts.insurance_expert",
+                                                    "originalData.$": "$"
+                                                }
+                                            },
+                                            "ResultPath": "$.insuranceExpertResult",
+                                            "Next": "StoreInsuranceExpertResult"
+                                        },
+                                        "StoreInsuranceExpertResult": {
+                                            "Type": "Task",
+                                            "Resource": "arn:aws:states:::dynamodb:putItem",
+                                            "Parameters": {
+                                                "TableName": "asclepius-visit-data",
+                                                "Item": {
+                                                    "visitId": {
+                                                        "S.$": "$.carePlanResult.Payload.carePlan.visitId"
+                                                    },
+                                                    "dataCategory": {
+                                                        "S": "insuranceExpert"
+                                                    },
+                                                    "expertResult": {
+                                                        "S.$": "States.JsonToString($.insuranceExpertResult.Payload.response)"
+                                                    }
+                                                }
+                                            },
+                                            "End": true,
+                                            "Retry": [
+                                                {
+                                                    "ErrorEquals": [
+                                                        "States.ServiceError",
+                                                        "States.TaskFailed"
+                                                    ],
+                                                    "IntervalSeconds": 2,
+                                                    "MaxAttempts": 6,
+                                                    "BackoffRate": 2
+                                                }
+                                            ]
+                                        },
+                                        "InsuranceExpertNotNeeded": {
+                                            "Type": "Pass",
+                                            "End": true
+                                        }
+                                    }
+                                },
+                                {
+                                    "StartAt": "CheckNutritionist",
+                                    "States": {
+                                        "CheckNutritionist": {
+                                            "Type": "Choice",
+                                            "Choices": [
+                                                {
+                                                    "Variable": "$.orchestratorResult.Payload.requiredExperts.nutritionist.needed",
+                                                    "BooleanEquals": true,
+                                                    "Next": "InvokeNutritionist"
+                                                }
+                                            ],
+                                            "Default": "NutritionistNotNeeded"
+                                        },
+                                        "InvokeNutritionist": {
+                                            "Type": "Task",
+                                            "Resource": "arn:aws:states:::lambda:invoke",
+                                            "Parameters": {
+                                                "FunctionName": "arn:aws:lambda:us-east-1:120569639545:function:asclepius-agent-nutritionist",
+                                                "Payload": {
+                                                    "expert.$": "$.orchestratorResult.Payload.requiredExperts.nutritionist",
+                                                    "originalData.$": "$"
+                                                }
+                                            },
+                                            "ResultPath": "$.nutritionistResult",
+                                            "Next": "StoreNutritionistResult"
+                                        },
+                                        "StoreNutritionistResult": {
+                                            "Type": "Task",
+                                            "Resource": "arn:aws:states:::dynamodb:putItem",
+                                            "Parameters": {
+                                                "TableName": "asclepius-visit-data",
+                                                "Item": {
+                                                    "visitId": {
+                                                        "S.$": "$.carePlanResult.Payload.carePlan.visitId"
+                                                    },
+                                                    "dataCategory": {
+                                                        "S": "nutritionExpert"
+                                                    },
+                                                    "expertResult": {
+                                                        "S.$": "States.JsonToString($.nutritionistResult.Payload.response)"
+                                                    }
+                                                }
+                                            },
+                                            "End": true,
+                                            "Retry": [
+                                                {
+                                                    "ErrorEquals": [
+                                                        "States.ServiceError",
+                                                        "States.TaskFailed"
+                                                    ],
+                                                    "IntervalSeconds": 2,
+                                                    "MaxAttempts": 6,
+                                                    "BackoffRate": 2
+                                                }
+                                            ]
+                                        },
+                                        "NutritionistNotNeeded": {
+                                            "Type": "Pass",
+                                            "End": true
+                                        }
+                                    }
+                                },
+                                {
+                                    "StartAt": "CheckOphthalmologist",
+                                    "States": {
+                                        "CheckOphthalmologist": {
+                                            "Type": "Choice",
+                                            "Choices": [
+                                                {
+                                                    "Variable": "$.orchestratorResult.Payload.requiredExperts.ophthalmologist.needed",
+                                                    "BooleanEquals": true,
+                                                    "Next": "InvokeOphthalmologist"
+                                                }
+                                            ],
+                                            "Default": "OphthalmologistNotNeeded"
+                                        },
+                                        "InvokeOphthalmologist": {
+                                            "Type": "Task",
+                                            "Resource": "arn:aws:states:::lambda:invoke",
+                                            "Parameters": {
+                                                "FunctionName": "arn:aws:lambda:us-east-1:120569639545:function:asclepius-agent-ophthalmologist",
+                                                "Payload": {
+                                                    "expert.$": "$.orchestratorResult.Payload.requiredExperts.ophthalmologist",
+                                                    "originalData.$": "$"
+                                                }
+                                            },
+                                            "ResultPath": "$.ophthalmologistResult",
+                                            "Next": "StoreOphthalmologistResult"
+                                        },
+                                        "StoreOphthalmologistResult": {
+                                            "Type": "Task",
+                                            "Resource": "arn:aws:states:::dynamodb:putItem",
+                                            "Parameters": {
+                                                "TableName": "asclepius-visit-data",
+                                                "Item": {
+                                                    "visitId": {
+                                                        "S.$": "$.carePlanResult.Payload.carePlan.visitId"
+                                                    },
+                                                    "dataCategory": {
+                                                        "S": "ophthalmologistExpert"
+                                                    },
+                                                    "expertResult": {
+                                                        "S.$": "States.JsonToString($.ophthalmologistResult.Payload.response)"
+                                                    }
+                                                }
+                                            },
+                                            "End": true,
+                                            "Retry": [
+                                                {
+                                                    "ErrorEquals": [
+                                                        "States.ServiceError",
+                                                        "States.TaskFailed"
+                                                    ],
+                                                    "IntervalSeconds": 2,
+                                                    "MaxAttempts": 6,
+                                                    "BackoffRate": 2
+                                                }
+                                            ]
+                                        },
+                                        "OphthalmologistNotNeeded": {
+                                            "Type": "Pass",
+                                            "End": true
+                                        }
+                                    }
+                                },
+                                {
+                                    "StartAt": "CheckPodiatrist",
+                                    "States": {
+                                        "CheckPodiatrist": {
+                                            "Type": "Choice",
+                                            "Choices": [
+                                                {
+                                                    "Variable": "$.orchestratorResult.Payload.requiredExperts.podiatrist.needed",
+                                                    "BooleanEquals": true,
+                                                    "Next": "InvokePodiatrist"
+                                                }
+                                            ],
+                                            "Default": "PodiatristNotNeeded"
+                                        },
+                                        "InvokePodiatrist": {
+                                            "Type": "Task",
+                                            "Resource": "arn:aws:states:::lambda:invoke",
+                                            "Parameters": {
+                                                "FunctionName": "arn:aws:lambda:us-east-1:120569639545:function:asclepius-agent-podiatrist",
+                                                "Payload": {
+                                                    "expert.$": "$.orchestratorResult.Payload.requiredExperts.podiatrist",
+                                                    "originalData.$": "$"
+                                                }
+                                            },
+                                            "ResultPath": "$.podiatristResult",
+                                            "Next": "StorePodiatristResult"
+                                        },
+                                        "StorePodiatristResult": {
+                                            "Type": "Task",
+                                            "Resource": "arn:aws:states:::dynamodb:putItem",
+                                            "Parameters": {
+                                                "TableName": "asclepius-visit-data",
+                                                "Item": {
+                                                    "visitId": {
+                                                        "S.$": "$.carePlanResult.Payload.carePlan.visitId"
+                                                    },
+                                                    "dataCategory": {
+                                                        "S": "podiatristExpert"
+                                                    },
+                                                    "expertResult": {
+                                                        "S.$": "States.JsonToString($.podiatristResult.Payload.response)"
+                                                    }
+                                                }
+                                            },
+                                            "End": true,
+                                            "Retry": [
+                                                {
+                                                    "ErrorEquals": [
+                                                        "States.ServiceError",
+                                                        "States.TaskFailed"
+                                                    ],
+                                                    "IntervalSeconds": 2,
+                                                    "MaxAttempts": 6,
+                                                    "BackoffRate": 2
+                                                }
+                                            ]
+                                        },
+                                        "PodiatristNotNeeded": {
+                                            "Type": "Pass",
+                                            "End": true
+                                        }
+                                    }
+                                },
+                                {
+                                    "StartAt": "CheckHospitalCareTeam",
+                                    "States": {
+                                        "CheckHospitalCareTeam": {
+                                            "Type": "Choice",
+                                            "Choices": [
+                                                {
+                                                    "Variable": "$.orchestratorResult.Payload.requiredExperts.hospital_care_team.needed",
+                                                    "BooleanEquals": true,
+                                                    "Next": "InvokeHospitalCareTeam"
+                                                }
+                                            ],
+                                            "Default": "HospitalCareTeamNotNeeded"
+                                        },
+                                        "InvokeHospitalCareTeam": {
+                                            "Type": "Task",
+                                            "Resource": "arn:aws:states:::lambda:invoke",
+                                            "Parameters": {
+                                                "FunctionName": "arn:aws:lambda:us-east-1:120569639545:function:asclepius-agent-hospital-care-team",
+                                                "Payload": {
+                                                    "expert.$": "$.orchestratorResult.Payload.requiredExperts.hospital_care_team",
+                                                    "originalData.$": "$"
+                                                }
+                                            },
+                                            "ResultPath": "$.hospitalCareTeamResult",
+                                            "Next": "StoreHospitalCareTeamResult"
+                                        },
+                                        "StoreHospitalCareTeamResult": {
+                                            "Type": "Task",
+                                            "Resource": "arn:aws:states:::dynamodb:putItem",
+                                            "Parameters": {
+                                                "TableName": "asclepius-visit-data",
+                                                "Item": {
+                                                    "visitId": {
+                                                        "S.$": "$.carePlanResult.Payload.carePlan.visitId"
+                                                    },
+                                                    "dataCategory": {
+                                                        "S": "hospitalCareTeamExpert"
+                                                    },
+                                                    "expertResult": {
+                                                        "S.$": "States.JsonToString($.hospitalCareTeamResult.Payload.response)"
+                                                    }
+                                                }
+                                            },
+                                            "End": true,
+                                            "Retry": [
+                                                {
+                                                    "ErrorEquals": [
+                                                        "States.ServiceError",
+                                                        "States.TaskFailed"
+                                                    ],
+                                                    "IntervalSeconds": 2,
+                                                    "MaxAttempts": 6,
+                                                    "BackoffRate": 2
+                                                }
+                                            ]
+                                        },
+                                        "HospitalCareTeamNotNeeded": {
+                                            "Type": "Pass",
+                                            "End": true
+                                        }
+                                    }
+                                },
+                                {
+                                    "StartAt": "CheckADAExpert",
+                                    "States": {
+                                        "CheckADAExpert": {
+                                            "Type": "Choice",
+                                            "Choices": [
+                                                {
+                                                    "Variable": "$.orchestratorResult.Payload.requiredExperts.ada_expert.needed",
+                                                    "BooleanEquals": true,
+                                                    "Next": "InvokeADAExpert"
+                                                }
+                                            ],
+                                            "Default": "ADAExpertNotNeeded"
+                                        },
+                                        "InvokeADAExpert": {
+                                            "Type": "Task",
+                                            "Resource": "arn:aws:states:::lambda:invoke",
+                                            "Parameters": {
+                                                "FunctionName": "arn:aws:lambda:us-east-1:120569639545:function:asclepius-agent-ada",
+                                                "Payload": {
+                                                    "expert.$": "$.orchestratorResult.Payload.requiredExperts.ada_expert",
+                                                    "originalData.$": "$"
+                                                }
+                                            },
+                                            "ResultPath": "$.adaExpertResult",
+                                            "Next": "StoreADAExpertResult"
+                                        },
+                                        "StoreADAExpertResult": {
+                                            "Type": "Task",
+                                            "Resource": "arn:aws:states:::dynamodb:putItem",
+                                            "Parameters": {
+                                                "TableName": "asclepius-visit-data",
+                                                "Item": {
+                                                    "visitId": {
+                                                        "S.$": "$.carePlanResult.Payload.carePlan.visitId"
+                                                    },
+                                                    "dataCategory": {
+                                                        "S": "adaExpert"
+                                                    },
+                                                    "expertResult": {
+                                                        "S.$": "States.JsonToString($.adaExpertResult.Payload.response)"
+                                                    }
+                                                }
+                                            },
+                                            "End": true,
+                                            "Retry": [
+                                                {
+                                                    "ErrorEquals": [
+                                                        "States.ServiceError",
+                                                        "States.TaskFailed"
+                                                    ],
+                                                    "IntervalSeconds": 2,
+                                                    "MaxAttempts": 6,
+                                                    "BackoffRate": 2
+                                                }
+                                            ]
+                                        },
+                                        "ADAExpertNotNeeded": {
+                                            "Type": "Pass",
+                                            "End": true
+                                        }
+                                    }
+                                },
+                                {
+                                    "StartAt": "CheckSocialDeterminantsExpert",
+                                    "States": {
+                                        "CheckSocialDeterminantsExpert": {
+                                            "Type": "Choice",
+                                            "Choices": [
+                                                {
+                                                    "Variable": "$.orchestratorResult.Payload.requiredExperts.social_determinants_expert.needed",
+                                                    "BooleanEquals": true,
+                                                    "Next": "InvokeSocialDeterminantsExpert"
+                                                }
+                                            ],
+                                            "Default": "SocialDeterminantsExpertNotNeeded"
+                                        },
+                                        "InvokeSocialDeterminantsExpert": {
+                                            "Type": "Task",
+                                            "Resource": "arn:aws:states:::lambda:invoke",
+                                            "Parameters": {
+                                                "FunctionName": "arn:aws:lambda:us-east-1:120569639545:function:asclepius-agent-social-determinants",
+                                                "Payload": {
+                                                    "expert.$": "$.orchestratorResult.Payload.requiredExperts.social_determinants_expert",
+                                                    "originalData.$": "$"
+                                                }
+                                            },
+                                            "ResultPath": "$.socialDeterminantsExpertResult",
+                                            "Next": "StoreSocialDeterminantsExpertResult"
+                                        },
+                                        "StoreSocialDeterminantsExpertResult": {
+                                            "Type": "Task",
+                                            "Resource": "arn:aws:states:::dynamodb:putItem",
+                                            "Parameters": {
+                                                "TableName": "asclepius-visit-data",
+                                                "Item": {
+                                                    "visitId": {
+                                                        "S.$": "$.carePlanResult.Payload.carePlan.visitId"
+                                                    },
+                                                    "dataCategory": {
+                                                        "S": "socialDeterminantsExpert"
+                                                    },
+                                                    "expertResult": {
+                                                        "S.$": "States.JsonToString($.socialDeterminantsExpertResult.Payload.response)"
+                                                    }
+                                                }
+                                            },
+                                            "End": true,
+                                            "Retry": [
+                                                {
+                                                    "ErrorEquals": [
+                                                        "States.ServiceError",
+                                                        "States.TaskFailed"
+                                                    ],
+                                                    "IntervalSeconds": 2,
+                                                    "MaxAttempts": 6,
+                                                    "BackoffRate": 2
+                                                }
+                                            ]
+                                        },
+                                        "SocialDeterminantsExpertNotNeeded": {
+                                            "Type": "Pass",
+                                            "End": true
+                                        }
+                                    }
+                                },
+                                {
+                                    "StartAt": "CheckPhysicalTherapist",
+                                    "States": {
+                                        "CheckPhysicalTherapist": {
+                                            "Type": "Choice",
+                                            "Choices": [
+                                                {
+                                                    "Variable": "$.orchestratorResult.Payload.requiredExperts.physical_therapist.needed",
+                                                    "BooleanEquals": true,
+                                                    "Next": "InvokePhysicalTherapist"
+                                                }
+                                            ],
+                                            "Default": "PhysicalTherapistNotNeeded"
+                                        },
+                                        "InvokePhysicalTherapist": {
+                                            "Type": "Task",
+                                            "Resource": "arn:aws:states:::lambda:invoke",
+                                            "Parameters": {
+                                                "FunctionName": "arn:aws:lambda:us-east-1:120569639545:function:asclepius-agent-physical-therapist",
+                                                "Payload": {
+                                                    "expert.$": "$.orchestratorResult.Payload.requiredExperts.physical_therapist",
+                                                    "originalData.$": "$"
+                                                }
+                                            },
+                                            "ResultPath": "$.physicalTherapistResult",
+                                            "Next": "StorePhysicalTherapistResult"
+                                        },
+                                        "StorePhysicalTherapistResult": {
+                                            "Type": "Task",
+                                            "Resource": "arn:aws:states:::dynamodb:putItem",
+                                            "Parameters": {
+                                                "TableName": "asclepius-visit-data",
+                                                "Item": {
+                                                    "visitId": {
+                                                        "S.$": "$.carePlanResult.Payload.carePlan.visitId"
+                                                    },
+                                                    "dataCategory": {
+                                                        "S": "physicalTherapistExpert"
+                                                    },
+                                                    "expertResult": {
+                                                        "S.$": "States.JsonToString($.physicalTherapistResult.Payload.response)"
+                                                    }
+                                                }
+                                            },
+                                            "End": true,
+                                            "Retry": [
+                                                {
+                                                    "ErrorEquals": [
+                                                        "States.ServiceError",
+                                                        "States.TaskFailed"
+                                                    ],
+                                                    "IntervalSeconds": 2,
+                                                    "MaxAttempts": 6,
+                                                    "BackoffRate": 2
+                                                }
+                                            ]
+                                        },
+                                        "PhysicalTherapistNotNeeded": {
+                                            "Type": "Pass",
+                                            "End": true
+                                        }
+                                    }
+                                }
+                            ],
+                            "End": true
+                        },
+                        "ExpertsNotNeeded": {
+                            "Type": "Pass",
+                            "End": true
+                        }
+                    }
+                }
+            ],
+            "End": true
+        }
+    }
+}

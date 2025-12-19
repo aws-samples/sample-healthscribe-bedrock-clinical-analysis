@@ -1,0 +1,9 @@
+{
+  "name": "ai-processor",
+  "version": "1.0.0",
+  "description": "AI processing Lambda function",
+  "main": "index.js",
+  "dependencies": {
+    "aws-sdk": "^2.1400.0"
+  }
+}

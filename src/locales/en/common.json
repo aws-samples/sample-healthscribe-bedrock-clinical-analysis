@@ -1,0 +1,215 @@
+{
+  "app": {
+    "general": {
+      "name": "Asclepius",
+      "welcome": "Welcome to Asclepius",
+      "signIn": "Sign in to your account"
+    }
+  },
+  "navigation": {
+    "menu": {
+      "home": "Home",
+      "patients": "Patients",
+      "manage": "Manage",
+      "setUp": "Set up",
+      "database": "Database",
+      "authentication": "Authentication",
+      "analytics": "Analytics",
+      "predictions": "Predictions",
+      "interactions": "Interactions",
+      "notifications": "Notifications",
+      "carePlan": "Care Plan",
+      "riskCalculation": "Risk Calculation"
+    },
+    "breadcrumbs": {
+      "patientDetail": "Patient Detail",
+      "visitDetail": "Visit Detail",
+      "showPath": "Show path",
+      "ariaLabel": "Breadcrumbs"
+    }
+  },
+  "ui": {
+    "buttons": {
+      "cancel": "Cancel",
+      "save": "Save",
+      "edit": "Edit",
+      "refresh": "Refresh",
+      "submit": "Submit",
+      "confirmed": "Confirmed",
+      "delete": "Delete",
+      "viewDetails": "View details",
+      "leavePage": "Leave page",
+      "continueSession": "Continue the session",
+      "ok": "OK",
+      "begin": "Begin",
+      "create": "Create",
+      "clearFilter": "Clear filter",
+      "createPatientProfile": "Create patient profile",
+      "retryLoading": "Retry Loading"
+    },
+    "headers": {
+      "careSummary": "Care Summary",
+      "transcript": "Transcript",
+      "insights": "Insights",
+      "newPatientInfo": "New Patient Information",
+      "recordingConsent": "Recording Consent",
+      "medicalHistory": "Medical History"
+    },
+    "fields": {
+      "name": "Name",
+      "patientId": "Patient ID",
+      "visitId": "Visit ID",
+      "dateOfBirth": "Date of Birth",
+      "dob": "DOB"
+    },
+    "accessibility": {
+      "searchIconAriaLabel": "Search",
+      "searchDismissIconAriaLabel": "Close search",
+      "overflowMenuTriggerText": "More",
+      "overflowMenuTitleText": "All",
+      "overflowMenuBackIconAriaLabel": "Back",
+      "overflowMenuDismissIconAriaLabel": "Close menu",
+      "notificationAriaLabel": "Notifications",
+      "settings": "Settings",
+      "settingsAriaLabel": "Settings",
+      "info": "Info"
+    },
+    "messages": {
+      "disclaimerAIGenerated": "These notes have been generated using AI, please carefully review them for accuracy and completeness before submitting."
+    }
+  },
+  "patient": {
+    "general": {
+      "title": "Patient",
+      "details": "Patient Details",
+      "information": "Patient information and medical records",
+      "startNewVisit": "Start New Visit",
+      "clickToStartRecording": "Click to start recording and generating insights.",
+      "medicalHistoryInfo": "Medical history information will be displayed here"
+    },
+    "states": {
+      "loading": "Loading patient details...",
+      "notFound": "No patient found",
+      "noIdProvided": "No patient ID provided",
+      "loadFailed": "Failed to load patient details"
+    },
+    "form": {
+      "firstName": "First Name",
+      "lastName": "Last Name",
+      "dateOfBirth": "Date of Birth (YYYY-MM-DD)",
+      "firstNameRequired": "First name is required",
+      "lastNameRequired": "Last name is required",
+      "dateOfBirthRequired": "Date of birth is required"
+    }
+  },
+  "visit": {
+    "general": {
+      "title": "Visit Details",
+      "records": "Visit Records",
+      "patientVisits": "Patient Visits",
+      "allVisits": "All Visits"
+    },
+    "states": {
+      "loading": "Loading visit details...",
+      "notFound": "No visit found",
+      "noIdProvided": "No visit ID provided",
+      "loadFailed": "Failed to load visit details",
+      "noPatientVisits": "This patient has no previous visits.",
+      "noVisitsFound": "No visits found."
+    }
+  },
+  "medical": {
+    "soap": {
+      "note": "SOAP Note",
+      "subjective": "Subjective",
+      "objective": "Objective",
+      "assessment": "Assessment",
+      "plan": "Plan",
+      "chiefComplaint": "Chief Complaint",
+      "historyOfPresentIllness": "History of Present Illness",
+      "reviewOfSystems": "Review of Systems",
+      "primaryDiagnosis": "Primary Diagnosis",
+      "primaryDiagnosisICD10": "Primary Diagnosis ICD10 Code",
+      "secondaryDiagnosis": "Secondary Diagnosis",
+      "secondaryDiagnosisICD10": "Secondary Diagnosis ICD10 Code",
+      "treatment": "Treatment",
+      "followup": "Followup"
+    },
+    "careplan": {
+      "suggested": "Suggested Care Plan",
+      "diagnosticTests": "Diagnostic Tests",
+      "followUpRecommendations": "Follow-up Recommendations",
+      "patientEducation": "Patient Education",
+      "specialistReferrals": "Specialist Referrals",
+      "treatmentOptions": "Treatment Options",
+      "specialistRecommendations": "Specialist Recommendations",
+      "recommendations": "Recommendations:",
+      "noDiagnosticTests": "No diagnostic tests available",
+      "noFollowUpRecommendations": "No follow-up recommendations available",
+      "noPatientEducation": "No patient education available",
+      "noSpecialistReferrals": "No specialist referrals available",
+      "noTreatmentOptions": "No treatment options available",
+      "noCarePlan": "No care plan available",
+      "selectCard": "Select a specialist card above to view their recommendations"
+    }
+  },
+  "session": {
+    "status": {
+      "inProgress": "Session in Progress",
+      "recorded": "Session Recorded",
+      "pressToStart": "Press button to start the session",
+      "sessionID": "Patient Session ID: ",
+      "changesSaved": "Changes saved successfully!",
+      "sessionNotSaved": "The session will not be saved.",
+      "notesAdded": "Your notes have been added to the patient profile in EHR"
+    },
+    "loading": {
+      "loading": "Loading visit data... ",
+      "processing": "Waiting for data to be processed...\nThis may take up to 30 seconds.",
+      "loadingInsights": "Loading insights...",
+      "loadingCareSummary": "Loading care summary...",
+      "loadingCarePlan": "Loading care plan..."
+    },
+    "errors": {
+      "noConversationEntries": "No valid conversation entries found",
+      "noVisitData": "No visit data available",
+      "noTranscriptData": "No transcript found for this visit",
+      "noNote": "No SOAP note found",
+      "noSessionID": "No session ID available. Please complete previous steps first.",
+      "errorParsingConversation": "Error parsing conversation data"
+    },
+    "actions": {
+      "seeFullDetails": "See full details",
+      "advisePatient": "Advise the patient that the consultation will be recorded and obtain their consent."
+    }
+  },
+  "data": {
+    "table": {
+      "noMatches": "No matches",
+      "cantFindMatch": "We can't find a match.",
+      "loading": "Loading",
+      "loadingPatients": "Loading patients",
+      "loadingVisits": "Loading visits",
+      "noPatients": "No patients",
+      "noPatientsDescription": "You don't have any patients.",
+      "noVisits": "No visits"
+    }
+  },
+  "user": {
+    "profile": {
+      "exampleUser": "Example User",
+      "exampleEmail": "customer@example.com",
+      "profile": "Profile",
+      "preferences": "Preferences",
+      "security": "Security",
+      "signOut": "Sign out"
+    },
+    "support": {
+      "support": "Support",
+      "documentation": "Documentation",
+      "opensInNewTab": " (opens in new tab)",
+      "feedback": "Feedback",
+      "customerSupport": "Customer support"
+    }
+  }
+}

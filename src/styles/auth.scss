@@ -1,0 +1,114 @@
+.custom-authenticator {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(
+    135deg,
+    #EEF2F6 0%,
+    #F8FAFC 50%,
+    #EEF2F6 100%
+  );
+  padding: 2rem;
+
+  [data-amplify-authenticator] {
+    --amplify-components-authenticator-container-background: rgba(255, 255, 255, 0.95);
+    --amplify-components-authenticator-container-border-radius: 16px;
+    --amplify-components-authenticator-container-box-shadow: 
+      0 4px 6px -1px rgba(0, 0, 0, 0.05),
+      0 10px 15px -3px rgba(0, 0, 0, 0.1),
+      0 0 0 1px rgba(0, 0, 0, 0.02);
+    
+    // Form styling
+    --amplify-components-fieldcontrol-border-color: #e2e8f0;
+    --amplify-components-fieldcontrol-border-radius: 8px;
+    --amplify-components-fieldcontrol-background-color: #f8fafc;
+    --amplify-components-fieldcontrol-padding: 0.75rem;
+    
+    // Button styling
+    --amplify-components-button-primary-background-color: #3182ce;
+    --amplify-components-button-primary-hover-background-color: #2c5282;
+    --amplify-components-button-border-radius: 8px;
+    --amplify-components-button-padding: 0.75rem;
+    
+    // Text colors
+    --amplify-components-text-color: #1a202c;
+    --amplify-components-fieldcontrol-color: #4a5568;
+    
+    width: 100%;
+    max-width: 400px;
+    margin: 0 auto;
+    backdrop-filter: blur(10px);
+    
+    [data-amplify-form] {
+      padding: 1.5rem 2rem;
+    }
+  }
+}
+
+// Keep your existing auth-header and animation styles
+.auth-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2.5rem 2rem;
+  background: transparent;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.6);
+  
+  .auth-logo {
+    width: 180px;
+    height: auto;
+    margin-bottom: 1.5rem;
+    animation: fadeIn 0.6s ease-in;
+  }
+  
+  h1 {
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: #1a202c;
+    margin: 0;
+    text-align: center;
+    line-height: 1.2;
+  }
+  
+  p {
+    font-size: 1rem;
+    color: #4a5568;
+    margin-top: 0.5rem;
+    text-align: center;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 480px) {
+  .custom-authenticator {
+    padding: 1rem;
+    
+    [data-amplify-authenticator] {
+      --amplify-components-authenticator-container-border-radius: 12px;
+    }
+  }
+  
+  .auth-header {
+    padding: 1.5rem 1rem;
+    
+    .auth-logo {
+      width: 140px;
+    }
+    
+    h1 {
+      font-size: 1.5rem;
+    }
+  }
+}

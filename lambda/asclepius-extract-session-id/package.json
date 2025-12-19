@@ -1,0 +1,9 @@
+{
+  "name": "asclepius-extract-session-id",
+  "version": "1.0.0",
+  "description": "Lambda function to extract session ID from HealthScribe output and trigger EventBridge event",
+  "main": "lambda_function.py",
+  "dependencies": {},
+  "author": "Asclepius Team",
+  "license": "MIT"
+}

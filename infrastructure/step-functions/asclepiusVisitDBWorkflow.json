@@ -1,0 +1,48 @@
+{
+    "Comment": "Clinical Summary Processing Workflow",
+    "StartAt": "ProcessSummary",
+    "States": {
+        "ProcessSummary": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:REGION:ACCOUNT:function:asclepius-summary-processor",
+            "InputPath": "$.detail",
+            "Next": "ParallelProcessing"
+        },
+        "ParallelProcessing": {
+            "Type": "Parallel",
+            "Branches": [
+                {
+                    "StartAt": "DynamoDBProcessing",
+                    "States": {
+                        "DynamoDBProcessing": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:lambda:REGION:ACCOUNT:function:asclepiius-dynamoDBwriter",
+                            "End": true
+                        }
+                    }
+                },
+                {
+                    "StartAt": "HealthLakeProcessing",
+                    "States": {
+                        "HealthLakeProcessing": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:lambda:REGION:ACCOUNT:function:asclepius-HLhandler",
+                            "End": true
+                        }
+                    }
+                }
+            ],
+            "Next": "WaitForProcessing"
+        },
+        "WaitForProcessing": {
+            "Type": "Wait",
+            "Seconds": 20,
+            "Next": "ICDInsertion"
+        },
+        "ICDInsertion": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:REGION:ACCOUNT:function:asclepius-dynamoDB-icd-insertion",
+            "End": true
+        }
+    }
+}

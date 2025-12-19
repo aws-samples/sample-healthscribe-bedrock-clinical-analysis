@@ -1,0 +1,11 @@
+{
+  "name": "asclepius-icd10-verify",
+  "version": "1.0.0",
+  "description": "Verifies and validates ICD-10 codes using Bedrock",
+  "main": "lambda_function.py",
+  "runtime": "python3.9",
+  "dependencies": {
+    "boto3": "^1.26.0"
+  },
+  "handler": "lambda_function.lambda_handler"
+}
