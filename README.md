@@ -1,4 +1,4 @@
-# Asclepius Healthcare AI System
+# Clinical Analysis Healthcare AI System
 
 A real-time audio transcription and clinical note generator featuring AI-powered multi-domain medical analysis and comprehensive care plan generation.
 
