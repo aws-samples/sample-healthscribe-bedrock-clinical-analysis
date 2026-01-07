@@ -1,10 +1,10 @@
-# Clinical Analysis Healthcare AI System
+# AWS Healthscribe AI System
 
 A real-time audio transcription and clinical note generator featuring AI-powered multi-domain medical analysis and comprehensive care plan generation.
 
 ## 🏥 System Overview
 
-Asclepius combines cutting-edge AI technologies to provide:
+This solution combines cutting-edge AI technologies to provide:
 - **Real-time Audio Transcription** with AWS HealthScribe
 - **12 AI Domain Specialists** for comprehensive medical analysis
 - **Intelligent Care Plan Generation** with ICD-10 verification
@@ -34,7 +34,7 @@ Asclepius combines cutting-edge AI technologies to provide:
 
 ### Unified Architecture Approach
 
-Asclepius uses a **unified CDK architecture**:
+This solution uses a **unified CDK architecture**:
 
 1. **All infrastructure managed by AWS CDK**: Provides core healthcare functionality (WebSocket, HealthScribe, data processing) as well as authentication (Cognito)
 2. **S3/CloudFront hosting**: for easy deployment and cost
