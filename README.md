@@ -1,4 +1,4 @@
-# AWS Healthscribe and Amazon Bedrock AI System for Clinical Analysis
+# Health Bedrock Clinical Analysis Application
 
 A real-time audio transcription and clinical note generator featuring AI-powered multi-domain medical analysis and comprehensive care plan generation.
 
